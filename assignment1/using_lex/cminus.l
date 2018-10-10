@@ -99,4 +99,3 @@ TokenType getToken(void)
   }
   return currentToken;
 }
-
