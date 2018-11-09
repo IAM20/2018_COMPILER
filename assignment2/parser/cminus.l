@@ -66,7 +66,7 @@ whitespace  [ \t]+
                       flag = 1;
                     }
 
-                    if (c == '\0') return ENDFILE;
+                    if (c == '\0' | c == EOF) return ENDFILE;
                     
                     if (c == '\n') lineno++;
                     else if (c == '*')

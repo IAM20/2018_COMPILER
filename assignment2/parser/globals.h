@@ -65,9 +65,7 @@ extern int lineno; /* source line number for listing */
 typedef enum {DclK,ParamK,StmtK,ExpK,TypeK} NodeKind;
 typedef enum {VarK,FuncK,ArrVarK} DclKind;
 typedef enum {ParK,ArrParK} ParamKind;
-//typedef enum {IfK,RepeatK,AssignK,ReadK,WriteK} StmtKind;
 typedef enum {CompK,IfK,IterK,RetK} StmtKind;
-//typedef enum {OpK,ConstK,IdK} ExpKind;
 typedef enum {AssignK,OpK,ConstK,IdK,ArrIdK,CallK} ExpKind;
 typedef enum {TypenameK} TypeKind;
 
@@ -75,7 +73,7 @@ typedef enum {TypenameK} TypeKind;
 typedef enum {Void,Integer,Boolean} ExpType;
 
 typedef struct arraykind
-   { TokenType type;
+   { //TokenType type;
      int size;
      char * name;
    } Arraykind;
@@ -93,7 +91,7 @@ typedef struct treeNode
              ExpKind exp;
              TypeKind type;} kind;
      union { TokenType op;
-             TokenType type;
+             //TokenType type;
              int val;
              char * name;
              Arraykind arr; } attr;

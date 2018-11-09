@@ -289,32 +289,7 @@ void printTree( TreeNode * tree )
       }
     }
     else if (tree->nodekind==TypeK)
-    { break;
-      /*switch (tree->kind.type)
-      { case TypenameK:
-          if (tree->type==Integer)
-          { for(j=0;j<indentno;j++)
-              fprintf(listing,"\b");
-            fprintf(listing,"type : int\n");
-          }
-          else if (tree->type==Void)
-          {
-            if(!tree->attr.name)
-              fprintf(listing,"Single parameter, name : %s, ", tree->attr.name);
-            else
-            { for(j=0;j<indentno;j++)
-                fprintf(listing,"\b");
-            }
-            fprintf(listing,"type : void\n");
-          }
-          else
-            fprintf(listing,"Unknown TypeNode kind\n");
-          break;
-        default:
-          fprintf(listing,"Unknown TypeNode kind\n");
-          break;
-      }*/
-    }
+      break;
     else fprintf(listing,"Unknown node kind\n");
     for (i=0;i<MAXCHILDREN;i++)
       printTree(tree->child[i]);
