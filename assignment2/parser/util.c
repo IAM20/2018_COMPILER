@@ -231,7 +231,7 @@ void printTree( TreeNode * tree )
     else if (tree->nodekind==ExpK)
     { switch (tree->kind.exp) {
         case AssignK:
-          fprintf(listing,"Assign :  (destination) (soure)\n");
+          fprintf(listing,"Assign : (destination) (soure)\n");
           break;
         case OpK:
           fprintf(listing,"Op : ");
@@ -265,7 +265,7 @@ void printTree( TreeNode * tree )
           printType(tree);
           break;
         case ArrVarK:
-          fprintf(listing,"ArrVar declaration, name : %s, size : %d",tree->attr.arr.name,tree->attr.arr.size);
+          fprintf(listing,"ArrVar declaration, name : %s, size : %d, ",tree->attr.arr.name,tree->attr.arr.size);
           printType(tree);
           break;
         default:
