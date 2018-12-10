@@ -136,24 +136,27 @@ void checkRetK(TreeNode * t)
       symbolError("Function does not exist", t->lineno);
   }
 }
-//function for check op exptype return -1 if error
+//function for check op exptype return type and -1 if error
 int checkOpType(TreeNode * t)
 { char * name; BucketList m;
   
   if(t->kind.exp == ConstK || t->kind.exp == OpK)
     {return 1;}
   else
-  { if(t->kind.exp == IdK || t->kind.exp == OpK)
+  { if(t->kind.exp == IdK || t->kind.exp == CallK)
       name = t->attr.name;
     else if(t->kind.exp == ArrIdK)
       name = t->attr.arr.name;
     m = st_lookup(scopeStack[scopeStackTop - 1], name);
     if(m == NULL)
-    { symbolError("Undefined symbol at OP", t->lineno);
+    { symbolError("Undefined symbol", t->lineno);
       return -1;
     }
     fprintf(listing, "tkind %d %d\n", t->nodekind, m->node->nodekind);
-            
+    if(m->node->type == Void)
+    { symbolError("Void type cannot be operated or assigned", t->lineno);
+    }
+
     if(m->node->nodekind == ParamK)
     { if(t->kind.exp != (m->node->kind.param + 3)) // check arrvar or var
       { symbolError("Use unavaliable type", t->lineno);
@@ -164,6 +167,8 @@ int checkOpType(TreeNode * t)
     { if((t->kind.exp == IdK && m->node->kind.dcl == VarK) ||
         (t->kind.exp == ArrIdK && m->node->kind.dcl == ArrVarK)) // check arrvar or var
       {}
+      else if(t->kind.exp == CallK)
+        return m->node->type;
       else
       { symbolError("Use unavaliable type", t->lineno);
         return -1;
@@ -297,45 +302,74 @@ static void insertNode( TreeNode * t )
         case CallK:
           if(isArr == 0)
             name = t->attr.name;
+          else
+            isArr = 0;
+
           fprintf(listing, "DEBUG10 %s\n", name);
           l = st_lookup(scopeStack[scopeStackTop - 1], name); 
           if (l == NULL) {
-          /* not yet in table */
             symbolError("Undeclared symbol", t->lineno);
             return;
           }
           else {
-          /* already in table add line number of use only */
             if(t->kind.exp == CallK)
             { tmp1 = t->child[0];
-              tmp2 = l->node->child[1];;
+              tmp2 = l->node->child[1];
+              
+              if(tmp1 == NULL && tmp2 != NULL)
+              { symbolError("Different parameter #", t->lineno);
+                return;
+              }
 
               while(tmp1 != NULL)
               { if(tmp2->type == Void || tmp2 == NULL)
-                { symbolError("Wrong parameter type", t->lineno);
+                { symbolError("Different parameter #", t->lineno);
                   return;
                 }
                 
-                if(tmp1->kind.exp == OpK) 
+                if(tmp1->kind.exp == OpK || tmp1->kind.exp == ConstK || tmp1->kind.exp == IdK) 
                 { if(tmp2->kind.param == ArrParK)
                   { symbolError("Wrong parameter type", t->lineno);
                     return;
                   }
                 }
-                else
-                {
+                else if(tmp1->kind.exp == AssignK)
+                { symbolError("Wrong parameter type", t->lineno);
+                  return;
+                }
+                else if(tmp1->kind.exp == ArrIdK)
+                { if(tmp2->kind.param == ParK)
+                  { symbolError("Wrong parameter type", t->lineno);
+                    return;
+                  }
+                }
+                else if(tmp1->kind.exp == CallK)
+                { m = st_lookup(scopeStack[scopeStackTop - 1], tmp1->attr.name); 
+                  if (m == NULL)
+                  { symbolError("Undeclared function", t->lineno);
+                    return;
+                  }
+                  else if(m->type != tmp2->type)
+                  { symbolError("Unmatched return type", t->lineno);
+                    return;
+                  }
+                  else if(m->type == Integer && tmp2->kind.param == ArrParK)
+                  { symbolError("Unmatched return type", t->lineno);
+                    return;
+                  }
+
                   //fprintf(listing, "DEBUG13 %d %d\n", tmp1->kind.exp, tmp2->kind.param);
 
-                  if(tmp1->kind.exp != (tmp2->kind.param + 3))
+                  /*if(tmp1->kind.exp != (tmp2->kind.param + 3))
                   { symbolError("Wrong parameter type", t->lineno);
                       return;
-                  }
+                  }*/
                 }
                 tmp1 = tmp1->sibling;
                 tmp2 = tmp2->sibling;
 
                 if(tmp1 == NULL  && tmp2 != NULL)
-                { symbolError("Wrong parameter type", t->lineno);
+                { symbolError("Different paramter #", t->lineno);
                   return;
                 }
               }
@@ -349,29 +383,26 @@ static void insertNode( TreeNode * t )
           tmp1 = t->child[0];
           tmp2 = t->child[1];
 
-          if(tmp1->kind.exp == IdK)
-            name = tmp1->attr.name;
-          else if(tmp1->kind.exp == ArrIdK)
-            name = tmp1->attr.arr.name;
-          l = st_lookup(scopeStack[scopeStackTop - 1], name);
-
-          if(l == NULL)
-          { symbolError("Undefined symbola at assign", t->lineno);
+          if(checkOpType(tmp1) == -1)
             return;
-          }
 
+          if(tmp2->kind.exp != OpK || tmp2->kind.exp != ConstK)
+          { if(checkOpType(tmp2) == -1)
+              return;
+           }/*
+          else
+          {
+            fprintf(listing, "DEBUG6 %d %d %d\n", tmp1->nodekind, tmp2->nodekind, tmp2->type);
+            if(tmp1->type != tmp2->type)
+            { symbolError("Need to be same type to assign", t->lineno);
+              return;
+            }
 
-
-
-          if(t->child[1]->type == Void)
-          { symbolError("Cannot assign Void type", t->lineno);
-            return;
-          }
-
-          if(t->child[0]->kind.exp != t->child[1]->kind.exp)
-          { symbolError("Assign different type", t->lineno);
-            return;
-          }
+            if(tmp1->type == Void || tmp2->type == Void)
+            { symbolError("Void type cannot be assigned or assign", t->lineno);
+              return;
+            }
+          }*/
           /*
           l = st_lookup(scopeStackTop[scopeStackTop - 1], t->child[0]->attr.name);
 
@@ -388,14 +419,14 @@ static void insertNode( TreeNode * t )
           
           tmp1 = t->child[0];
           tmp2 = t->child[1];
-          if(tmp1->kind.exp != OpK)
+          if(tmp1->kind.exp != OpK && tmp1->kind.exp != ConstK)
           { if(checkOpType(tmp1) == -1)
               return;
           }
           else if(tmp2->kind.exp != OpK && tmp2->kind.exp != ConstK)
           { if(checkOpType(tmp2) == -1)
               return;
-          }
+          }/*
           else
           {
             fprintf(listing, "DEBUG6 %d %d\n", tmp1->nodekind, tmp2->nodekind);
@@ -408,7 +439,7 @@ static void insertNode( TreeNode * t )
             { symbolError("Void type cannot be operated", t->lineno);
               return;
             }
-          }
+          }*/
           /*
           if(tmp1->kind.exp == IdK)
             name = tmp1->attr.name;
@@ -449,15 +480,16 @@ void builtinFunc()
 
   d = newDclNode(FuncK);
   d->attr.name = "input";
+  d->lineno = 0;
 
   t = newTypeNode(TypenameK);
   d->child[0] = t;
   //t->type = Integer;
   d->type = Integer;
 
-  p = newParamNode(ParK);
-  p->type = Void;
-  d->child[1] = p;
+  //p = newParamNode(ParK);
+  //p->type = Void;
+  d->child[1] = NULL;
 
   c = newStmtNode(CompK);
   c->child[0] = NULL;
@@ -468,6 +500,7 @@ void builtinFunc()
 
   d = newDclNode(FuncK);
   d->attr.name = "output";
+  d->lineno = 0;
 
   t = newTypeNode(TypenameK);
   d->child[0] = t;
@@ -499,10 +532,11 @@ void buildSymtab(TreeNode * syntaxTree)
   traverse(syntaxTree,insertNode,afterInsert);
 
   //fprintf(listing, "DEBUG1\n");
+  /*
   if (TraceAnalyze)
   { fprintf(listing,"\nSymbol table:\n\n");
     printSymTab(listing);
-  }
+  }*/
 }
 
 static void typeError(TreeNode * t, char * message)
