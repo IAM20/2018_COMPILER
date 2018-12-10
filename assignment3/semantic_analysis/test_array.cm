@@ -1,0 +1,6 @@
+int main( int a[], int b)
+{
+  int var;
+  var = a[0];
+  return var + a[1];
+}
