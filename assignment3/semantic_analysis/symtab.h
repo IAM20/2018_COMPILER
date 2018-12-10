@@ -50,10 +50,10 @@ typedef struct ScopeListRec
     int depth;
   } * ScopeList;
 
-static ScopeList scopeStack[MAXSCOPE]; // for build symtable
-static ScopeList scopeAll[MAXSCOPE]; // save all scope
-static int scopeStackTop = 0;
-static int scopeSize = 0; // scope #
+ScopeList scopeStack[MAXSCOPE]; // for build symtable
+ScopeList scopeAll[MAXSCOPE]; // save all scope
+int scopeStackTop;
+int scopeSize; // scope #
 
 ScopeList newScope(char*);
 void pushScope(ScopeList);

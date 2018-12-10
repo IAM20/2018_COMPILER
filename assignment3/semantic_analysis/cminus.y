@@ -286,6 +286,7 @@ factor      : LPAREN exp RPAREN { $$= $2; }
             | saveNUM
                  { $$ = newExpNode(ConstK);
                    $$->attr.val = savedNum;
+                   $$->type = Integer;
                  }
             ;
 call        : saveID
@@ -304,7 +305,7 @@ arg-list    : arg-list COMMA exp
                         t = t->sibling;
                      t->sibling = $3;
                      $$ = $1; }
-                     else $$ = $3;
+                   else $$ = $3;
                  }
             | exp { $$ = $1; }
             ;

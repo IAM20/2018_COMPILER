@@ -16,7 +16,8 @@ static int location = 0;
 
 //for compK, do not push scope for function comp
 int isFunc = 0;
-
+//for check return type;
+char * funcName;
 /* Procedure traverse is a generic recursive 
  * syntax tree traversal routine:
  * it applies preProc in preorder and postProc 
@@ -26,12 +27,16 @@ static void traverse( TreeNode * t,
                void (* preProc) (TreeNode *),
                void (* postProc) (TreeNode *) )
 { if (t != NULL)
-  { preProc(t);
+  { fprintf(listing, "DEBUG ME\n");
+    preProc(t);
+    //fprintf(listing, "DEBUG2\n");
+
     { int i;
-      for (i=0; i < MAXCHILDREN; i++)
-        traverse(t->child[i],preProc,postProc);
+      for (i=0; i < MAXCHILDREN; i++){
+        fprintf(listing, "DEBUG child\n"); traverse(t->child[i],preProc,postProc); }
     }
     postProc(t);
+    fprintf(listing, "DEBUG sibling`\n");
     traverse(t->sibling,preProc,postProc);
   }
 }
@@ -55,46 +60,133 @@ static void afterInsert(TreeNode * t)
 
 //print symbol error type
 static void symbolError(char * errorName, int lineno)
-{ fprintf(listing, "Semantic Error: %s at line %d/n", errorName, lineno);
+{ fprintf(listing, "Semantic Error: %s at line %d\n", errorName, lineno);
   Error = TRUE;
 }
 
 //check return type error
-static void checkRetK(TreeNode * t)
-{ BucketList l = st_lookup(scopeStack[scopeStackTop - 1], t->attr.name);
-  if (l != NULL)
-  { if (l->type == Void && t->child[0] != NULL)
-      symbolError("Void should be returned", t->lineno);
-    else if (l->type == Integer)
-    { if (t->child[0] == NULL)
-        symbolError("Integer should be returned", t->lineno);
-      else if (t->child[0]->kind.exp == IdK)
-      { if (st_lookup(scopeStack[scopeStackTop - 1], t->child[0]->attr.name) == NULL)
-          symbolError("Integer should be returned", t->lineno);
-      }
-      else if (t->child[0]->kind.exp != ConstK)
-        symbolError("Integer should be returned", t->lineno);
-    }
+void checkRetK(TreeNode * t)
+{ char * name; BucketList l; TreeNode * tmp;
+  l = st_lookup(scopeStack[0], funcName);
+  fprintf(listing, "DEBUG8 %s %d\n", funcName, l->type);
+  if(t->child[0] == NULL)
+  { if(l->type != Void)
+      symbolError("Integer should be returned", t->lineno);
   }
-  else //something weird
-  { symbolError("No function declare", t->lineno);
-    return;
+  else
+  { 
+    tmp = t->child[0];
+    switch(tmp->kind.exp)
+    { case AssignK:
+      case OpK:
+        symbolError("return wrong type", t->lineno);
+        break;
+      case ConstK:
+        break;
+      case IdK:
+      case CallK:
+        name = tmp->attr.name;
+        break;
+      case ArrIdK:
+        name = tmp->attr.arr.name;
+        break;
+    }
+    
+    if (l != NULL)
+    { if (l->type == Void)
+      { if(tmp->kind.exp == CallK)
+        { l = st_lookup(scopeStack[scopeStackTop - 1], tmp->attr.name);
+          if(l == NULL)
+            symbolError("return unknown type", t->lineno);
+          else if(l->type != Void)
+            symbolError("Void should be returned", t->lineno);
+        }
+        else
+          symbolError("Void should be returned", t->lineno);
+      }
+      else if (l->type == Integer)
+      { switch(tmp->kind.exp)
+        { case CallK:
+          case IdK:
+            fprintf(listing, "DEBUG NAME %s\n", tmp->attr.name);
+
+            l = st_lookup(scopeStack[scopeStackTop - 1], tmp->attr.name);
+            
+            if(l == NULL)
+            { symbolError("return unknown type", t->lineno);
+              return;
+            }
+
+            if(tmp->kind.exp == CallK)
+            { if(l->type == Void)
+              { symbolError("Integer should be returned", t->lineno);
+                return;
+              }
+            }
+
+            break;
+          case ArrIdK:
+            if (st_lookup(scopeStack[scopeStackTop - 1], tmp->attr.name) == NULL)
+              symbolError("return unknown type", t->lineno);
+            break;
+        }
+      }
+    }
+    else//something wierd
+      symbolError("Function does not exist", t->lineno);
   }
 }
-
+//function for check op exptype return -1 if error
+int checkOpType(TreeNode * t)
+{ char * name; BucketList m;
+  
+  if(t->kind.exp == ConstK || t->kind.exp == OpK)
+    {return 1;}
+  else
+  { if(t->kind.exp == IdK || t->kind.exp == OpK)
+      name = t->attr.name;
+    else if(t->kind.exp == ArrIdK)
+      name = t->attr.arr.name;
+    m = st_lookup(scopeStack[scopeStackTop - 1], name);
+    if(m == NULL)
+    { symbolError("Undefined symbol at OP", t->lineno);
+      return -1;
+    }
+    fprintf(listing, "tkind %d %d\n", t->nodekind, m->node->nodekind);
+            
+    if(m->node->nodekind == ParamK)
+    { if(t->kind.exp != (m->node->kind.param + 3)) // check arrvar or var
+      { symbolError("Use unavaliable type", t->lineno);
+        return -1;
+      }
+    }
+    else if(m->node->nodekind == DclK)
+    { if((t->kind.exp == IdK && m->node->kind.dcl == VarK) ||
+        (t->kind.exp == ArrIdK && m->node->kind.dcl == ArrVarK)) // check arrvar or var
+      {}
+      else
+      { symbolError("Use unavaliable type", t->lineno);
+        return -1;
+      }
+    }
+  }
+  return 1;
+}
 /* Procedure insertNode inserts 
  * identifiers stored in t into 
  * the symbol table 
  */
 static void insertNode( TreeNode * t )
-{ BucketList l; TreeNode * tmp1, * tmp2; char * name; int isArr = 0;
+{ BucketList l, m; TreeNode * tmp1, * tmp2; char * name; int isArr = 0;
 
+  //fprintf(listing, "DEBUG2 %d %d\n", t->nodekind, t->type);
   switch (t->nodekind)
   { case DclK:
+      fprintf(listing, "DEBUG DclK %d\n", t->kind.dcl);
       switch (t->kind.dcl)
       { case FuncK:
+          //fprintf(listing, "DEBUG3 %d\n", scopeStackTop);    
           l = st_lookup(scopeStack[scopeStackTop - 1], t->attr.name);
-              
           if(l != NULL)
           { symbolError("Redefined Function", t->lineno);
             return;
@@ -103,7 +195,7 @@ static void insertNode( TreeNode * t )
           st_insert(t->attr.name, t->type, t->lineno, t);
             //ScopeList scope = newScope(t->attr.name);
           pushScope(newScope(t->attr.name));
-          isFunc = 1;
+          isFunc = 1; funcName = t->attr.name;
 
           break;
         case VarK:
@@ -132,6 +224,10 @@ static void insertNode( TreeNode * t )
       }
       break;
     case ParamK:
+      fprintf(listing, "DEBUG ParamK %d\n", t->kind.param);
+      if(t->type == Void)
+        return;
+
       if(t->kind.param == ParK)
         name = t->attr.name;
       else if(t->kind.param == ArrParK)
@@ -159,6 +255,7 @@ static void insertNode( TreeNode * t )
       }*/
       break;
     case StmtK:
+      fprintf(listing, "DEBUG StmtK %d\n", t->kind.stmt);
       switch (t->kind.stmt)
       { case CompK:
           if (isFunc == 1)
@@ -191,6 +288,8 @@ static void insertNode( TreeNode * t )
       }
       break;
     case ExpK:
+      fprintf(listing, "DEBUG ExpK %d\n", t->kind.exp);
+
       switch (t->kind.exp)
       { case ArrIdK:
           name = t->attr.arr.name; isArr = 1;
@@ -198,7 +297,7 @@ static void insertNode( TreeNode * t )
         case CallK:
           if(isArr == 0)
             name = t->attr.name;
-
+          fprintf(listing, "DEBUG10 %s\n", name);
           l = st_lookup(scopeStack[scopeStackTop - 1], name); 
           if (l == NULL) {
           /* not yet in table */
@@ -209,22 +308,36 @@ static void insertNode( TreeNode * t )
           /* already in table add line number of use only */
             if(t->kind.exp == CallK)
             { tmp1 = t->child[0];
-              tmp2 = l->node->child[0];
+              tmp2 = l->node->child[1];;
 
               while(tmp1 != NULL)
               { if(tmp2->type == Void || tmp2 == NULL)
-                  symbolError("Wrong parameter type", t->lineno);
-
-                if(tmp1->kind.param != tmp2->kind.param)
                 { symbolError("Wrong parameter type", t->lineno);
                   return;
                 }
-                //paranNum++;
+                
+                if(tmp1->kind.exp == OpK) 
+                { if(tmp2->kind.param == ArrParK)
+                  { symbolError("Wrong parameter type", t->lineno);
+                    return;
+                  }
+                }
+                else
+                {
+                  //fprintf(listing, "DEBUG13 %d %d\n", tmp1->kind.exp, tmp2->kind.param);
+
+                  if(tmp1->kind.exp != (tmp2->kind.param + 3))
+                  { symbolError("Wrong parameter type", t->lineno);
+                      return;
+                  }
+                }
                 tmp1 = tmp1->sibling;
                 tmp2 = tmp2->sibling;
 
                 if(tmp1 == NULL  && tmp2 != NULL)
-                  symbolError("Wrong parameter type", t->lineno);
+                { symbolError("Wrong parameter type", t->lineno);
+                  return;
+                }
               }
             }
 
@@ -233,6 +346,23 @@ static void insertNode( TreeNode * t )
 
           break;
         case AssignK:
+          tmp1 = t->child[0];
+          tmp2 = t->child[1];
+
+          if(tmp1->kind.exp == IdK)
+            name = tmp1->attr.name;
+          else if(tmp1->kind.exp == ArrIdK)
+            name = tmp1->attr.arr.name;
+          l = st_lookup(scopeStack[scopeStackTop - 1], name);
+
+          if(l == NULL)
+          { symbolError("Undefined symbola at assign", t->lineno);
+            return;
+          }
+
+
+
+
           if(t->child[1]->type == Void)
           { symbolError("Cannot assign Void type", t->lineno);
             return;
@@ -254,18 +384,32 @@ static void insertNode( TreeNode * t )
           }*/
           break;
         case OpK:
+          fprintf(listing, "DEBUG7 %d\n", scopeStackTop);
+          
           tmp1 = t->child[0];
           tmp2 = t->child[1];
-          if(tmp1->type != tmp2->type)
-          { symbolError("Need to be same type to operate", t->lineno);
-            return;
+          if(tmp1->kind.exp != OpK)
+          { if(checkOpType(tmp1) == -1)
+              return;
           }
-
-          if(tmp1->type == Void || tmp2->type == Void)
-          { symbolError("Void type cannot be operated", t->lineno);
-            return;
+          else if(tmp2->kind.exp != OpK && tmp2->kind.exp != ConstK)
+          { if(checkOpType(tmp2) == -1)
+              return;
           }
+          else
+          {
+            fprintf(listing, "DEBUG6 %d %d\n", tmp1->nodekind, tmp2->nodekind);
+            if(tmp1->type != tmp2->type)
+            { symbolError("Need to be same type to operate", t->lineno);
+              return;
+            }
 
+            if(tmp1->type == Void || tmp2->type == Void)
+            { symbolError("Void type cannot be operated", t->lineno);
+              return;
+            }
+          }
+          /*
           if(tmp1->kind.exp == IdK)
             name = tmp1->attr.name;
           else if(tmp1->kind.exp == ArrIdK)
@@ -284,7 +428,7 @@ static void insertNode( TreeNode * t )
           if(tmp2->kind.exp != l->node->kind.exp)
           { symbolError("Use unavaliable type", t->lineno);
             return;
-          }
+          }*/
 
           break;
         default:
@@ -350,9 +494,11 @@ void builtinFunc()
 void buildSymtab(TreeNode * syntaxTree)
 { ScopeList scope = newScope("global");
   pushScope(scope);
+  //fprintf(listing, "DEBUG4 %d\n", scopeStackTop);
   builtinFunc();
-
   traverse(syntaxTree,insertNode,afterInsert);
+
+  //fprintf(listing, "DEBUG1\n");
   if (TraceAnalyze)
   { fprintf(listing,"\nSymbol table:\n\n");
     printSymTab(listing);

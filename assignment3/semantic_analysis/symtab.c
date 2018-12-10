@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "symtab.h"
+//#include "globals.h"
 
 /* SIZE is the size of the hash table */
 #define SIZE 211
@@ -20,8 +21,10 @@
    in hash function  */
 #define SHIFT 4
 
-//static ScopeList scopeStackTop[MAXSCOPE]; // for build symtab
-//static ScopeList scopSt
+ScopeList scopeStack[MAXSCOPE]; // for build symtab
+ScopeList scopeAll[MAXSCOPE];
+int scopeStackTop = 0;
+int scopeSize = 0;
 
 /* the hash function */
 static int hash ( char * key )
@@ -64,6 +67,7 @@ ScopeList newScope(char * name)
 
 void pushScope(ScopeList scope)
 { scopeStack[scopeStackTop++] = scope;
+  //fprintf(listing, "DEBUG5 %d\n", scopeStackTop);
 }
 
 void popScope()
@@ -97,8 +101,6 @@ void st_insert( char * name, ExpType type, int lineno, TreeNode * t/*, int loc *
     l->next = scope->bucket[h];
     scope->bucket[h] = l;
     l->node = t;
-    //if(parmaK != -1)
-      //l->param = paramK;
   }
   else /* found in table, so just add line number */
   { LineList t = l->lines;
@@ -123,10 +125,12 @@ void st_insert( char * name, ExpType type, int lineno, TreeNode * t/*, int loc *
 
 BucketList st_lookup(ScopeList scope, char * name)
 { int h = hash(name);
-  BucketList l =  scope->bucket[h];
+  BucketList l;
 
   while(scope != NULL)
-  { while ((l != NULL) && (strcmp(name,l->name) != 0))
+  { l = scope->bucket[h];
+
+    while ((l != NULL) && (strcmp(name,l->name) != 0))
       l = l->next;
     
     if (l != NULL) return l;
