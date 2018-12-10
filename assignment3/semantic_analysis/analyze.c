@@ -317,8 +317,11 @@ static void insertNode( TreeNode * t )
               tmp2 = l->node->child[1];
               
               if(tmp1 == NULL && tmp2 != NULL)
-              { symbolError("Different parameter #", t->lineno);
-                return;
+              { if(tmp2->nodekind == ParamK && tmp2->type == Void) {}
+                else
+                { symbolError("Different parameter #", t->lineno);
+                  return;
+                }
               }
 
               while(tmp1 != NULL)
@@ -487,9 +490,9 @@ void builtinFunc()
   //t->type = Integer;
   d->type = Integer;
 
-  //p = newParamNode(ParK);
-  //p->type = Void;
-  d->child[1] = NULL;
+  p = newParamNode(ParK);
+  p->type = Void;
+  d->child[1] = p;
 
   c = newStmtNode(CompK);
   c->child[0] = NULL;
