@@ -1,0 +1,19 @@
+void foo(void)
+{
+  return;
+}
+
+int loo(void)
+{
+  return 1;
+}
+
+void sudomain(void)
+{
+  return foo(foo());
+}
+
+void main(void)
+{
+  return foo(loo());
+}

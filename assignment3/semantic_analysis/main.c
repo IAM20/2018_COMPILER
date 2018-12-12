@@ -47,7 +47,7 @@ int Error = FALSE;
 
 int
 main( int argc, char * argv[] )
-{ TreeNode * syntaxTree;
+{ TreeNode * syntaxTree; int err;
   char pgm[120]; /* source code file name */
   if (argc != 2)
     { fprintf(stderr,"usage: %s <filename>\n",argv[0]);
@@ -73,11 +73,17 @@ main( int argc, char * argv[] )
   }
 #if !NO_ANALYZE
   if (! Error)
-  { if (TraceAnalyze) fprintf(listing,"\nBuilding Symbol Table...\n");
-    buildSymtab(syntaxTree);
+  { if (TraceAnalyze) 
+    { fprintf(listing,"\nChecking Semantic Errors...\n");
+      err = buildSymtab(syntaxTree);
+      if(err)
+        fprintf(listing,"\nType Checking %d Errors\n", err);
+      else
+        fprintf(listing,"\nType Checking Finished\n");
+    }
     /*if (TraceAnalyze) fprintf(listing,"\nChecking Types...\n");
-    typeCheck(syntaxTree);*/
-    if (TraceAnalyze) fprintf(listing,"\nType Checking Finished\n");
+    typeCheck(syntaxTree);
+    if (TraceAnalyze) fprintf(listing,"\nType Checking Finished\n");*/
   }
 #if !NO_CODE
   if (! Error)

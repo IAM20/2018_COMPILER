@@ -18,6 +18,9 @@ static int location = 0;
 int isFunc = 0;
 //for check return type;
 char * funcName;
+//for checking error;
+int isErr = 0;
+
 /* Procedure traverse is a generic recursive 
  * syntax tree traversal routine:
  * it applies preProc in preorder and postProc 
@@ -62,6 +65,7 @@ static void afterInsert(TreeNode * t)
 static void symbolError(char * errorName, int lineno)
 { fprintf(listing, "Semantic Error: %s at line %d\n", errorName, lineno);
   Error = TRUE;
+  isErr++;
 }
 
 //check return type error
@@ -69,19 +73,27 @@ void checkRetK(TreeNode * t)
 { char * name; BucketList l; TreeNode * tmp;
   l = st_lookup(scopeStack[0], funcName);
   fprintf(listing, "DEBUG8 %s %d\n", funcName, l->type);
-  if(t->child[0] == NULL)
+  
+  if(t->child[0] == NULL) //treenode return void
   { if(l->type != Void)
       symbolError("Integer should be returned", t->lineno);
+
+    return;
   }
-  else
+  else // treenode return something
   { 
     tmp = t->child[0];
     switch(tmp->kind.exp)
     { case AssignK:
-      case OpK:
         symbolError("return wrong type", t->lineno);
+        return;
         break;
-      case ConstK:
+      case OpK:
+      case ConstK: //declared function must return int
+        if(l->type != Integer)
+        { symbolError("Void should be returned", t->lineno);
+          return;
+        }
         break;
       case IdK:
       case CallK:
@@ -97,12 +109,13 @@ void checkRetK(TreeNode * t)
       { if(tmp->kind.exp == CallK)
         { l = st_lookup(scopeStack[scopeStackTop - 1], tmp->attr.name);
           if(l == NULL)
-            symbolError("return unknown type", t->lineno);
+            symbolError("return unknown function", t->lineno);
           else if(l->type != Void)
             symbolError("Void should be returned", t->lineno);
         }
         else
           symbolError("Void should be returned", t->lineno);
+        return;
       }
       else if (l->type == Integer)
       { switch(tmp->kind.exp)
@@ -123,11 +136,12 @@ void checkRetK(TreeNode * t)
                 return;
               }
             }
-
             break;
           case ArrIdK:
-            if (st_lookup(scopeStack[scopeStackTop - 1], tmp->attr.name) == NULL)
-              symbolError("return unknown type", t->lineno);
+            if (st_lookup(scopeStack[scopeStackTop - 1], tmp->attr.arr.name) == NULL)
+            { symbolError("return unknown type", t->lineno);
+              return;
+            }
             break;
         }
       }
@@ -326,11 +340,28 @@ static void insertNode( TreeNode * t )
 
               while(tmp1 != NULL)
               { if(tmp2->type == Void || tmp2 == NULL)
-                { symbolError("Different parameter #", t->lineno);
-                  return;
+                { if(tmp1->kind.exp == CallK) // for dangling void func
+                  { m = st_lookup(scopeStack[scopeStackTop - 1], tmp1->attr.name);
+
+                    if(m == NULL)
+                    { symbolError("Undefined function", t->lineno);
+                      return;
+                    }
+                    else if(m->type == Void)
+                    {
+                      if(tmp1->sibling == NULL)
+                        return;
+                    }
+
+                    symbolError("Different parameter type", t->lineno);
+                    return;
+                  }
+                  else
+                  { symbolError("Different parameter #", t->lineno);
+                    return;
+                  }
                 }
-                
-                if(tmp1->kind.exp == OpK || tmp1->kind.exp == ConstK || tmp1->kind.exp == IdK) 
+                else if(tmp1->kind.exp == OpK || tmp1->kind.exp == ConstK) 
                 { if(tmp2->kind.param == ArrParK)
                   { symbolError("Wrong parameter type", t->lineno);
                     return;
@@ -340,11 +371,63 @@ static void insertNode( TreeNode * t )
                 { symbolError("Wrong parameter type", t->lineno);
                   return;
                 }
-                else if(tmp1->kind.exp == ArrIdK)
-                { if(tmp2->kind.param == ParK)
-                  { symbolError("Wrong parameter type", t->lineno);
+                else if(tmp1->kind.exp == IdK)
+                { m = st_lookup(scopeStack[scopeStackTop - 1], tmp1->attr.name);
+                  //fprintf(listing, "DEBUG Parameter\n %s\n", m->name);
+
+                  if(m == NULL)
+                  { symbolError("Undefined parameter", t->lineno);
                     return;
                   }
+
+                  if(m->type == Void)
+                  { //variable cannot be void, maybe error occurs early
+                    symbolError("Wrong parameter, Var cannot be Void", t->lineno);
+                    return;
+                  }
+                  else
+                  {
+                    if(m->node->nodekind == DclK)
+                    { if(m->node->kind.dcl == VarK)
+                      {
+                        if(tmp2->kind.param == ArrParK) // declare Arrvar but use var
+                        { symbolError("Wrong parameter type", t->lineno);
+                          return;
+                        }
+                      }
+                      else if(m->node->kind.dcl == ArrVarK) // vice versa
+                      { if(tmp2->kind.param == ParK)
+                        { symbolError("Wrong paramter type", t->lineno);
+                          return;
+                        }
+                      }
+                    }
+                    else if(m->node->nodekind == ParamK)
+                    { if(m->node->kind.param == ParK)
+                      {
+                        if(tmp2->kind.param == ArrParK) // declare Arrvar but use var
+                        { symbolError("Wrong parameter type", t->lineno);
+                          return;
+                        }
+                      }
+                      else if(m->node->kind.param == ArrParK) // vice versa
+                      { if(tmp2->kind.param == ParK)
+                        { symbolError("Wrong paramter type", t->lineno);
+                          return;
+                        }
+                      }
+                    }
+                    else //maybe not happen, declare must be DclK or ParamK
+                    {
+                      symbolError("fatal error", t->lineno);
+                      return;
+                    }
+                  }
+                  /*
+                  if(tmp2->kind.param == ParK)
+                  { symbolError("Wrong parameter type", t->lineno);
+                    return;
+                  }*/
                 }
                 else if(tmp1->kind.exp == CallK)
                 { m = st_lookup(scopeStack[scopeStackTop - 1], tmp1->attr.name); 
@@ -368,6 +451,12 @@ static void insertNode( TreeNode * t )
                       return;
                   }*/
                 }
+                else if(tmp1->kind.exp == ArrIdK)
+                { //this is syntax error, U shouldn't be here
+                  symbolError("Wrong parameter type", t->lineno);
+                  return;
+                }
+
                 tmp1 = tmp1->sibling;
                 tmp2 = tmp2->sibling;
 
@@ -527,12 +616,14 @@ void builtinFunc()
 /* Function buildSymtab constructs the symbol 
  * table by preorder traversal of the syntax tree
  */
-void buildSymtab(TreeNode * syntaxTree)
+//modified, return error numbers when err occurs
+int buildSymtab(TreeNode * syntaxTree)
 { ScopeList scope = newScope("global");
   pushScope(scope);
   //fprintf(listing, "DEBUG4 %d\n", scopeStackTop);
   builtinFunc();
   traverse(syntaxTree,insertNode,afterInsert);
+  return isErr;
 
   //fprintf(listing, "DEBUG1\n");
   /*
