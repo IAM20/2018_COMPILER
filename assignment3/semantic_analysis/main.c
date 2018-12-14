@@ -77,7 +77,7 @@ main( int argc, char * argv[] )
     { fprintf(listing,"\nChecking Semantic Errors...\n");
       err = buildSymtab(syntaxTree);
       if(err)
-        fprintf(listing,"\nType Checking %d Errors\n", err);
+        fprintf(listing,"\nType Checking %d Error\n", err);
       else
         fprintf(listing,"\nType Checking Finished\n");
     }

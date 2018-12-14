@@ -1,0 +1,9 @@
+void foo(void)
+{
+  return;
+}
+
+int main(void)
+{
+  int a;
+}

@@ -67,13 +67,11 @@ ScopeList newScope(char * name)
 
 void pushScope(ScopeList scope)
 { scopeStack[scopeStackTop++] = scope;
-  //fprintf(listing, "DEBUG5 %d\n", scopeStackTop);
 }
 
 void popScope()
 { ScopeList tmp = scopeStack[scopeStackTop--];
   free(tmp);
-  //free(scopeStack[scopeStackTop--]);
   scopeStack[scopeStackTop] = NULL;
 }
 
@@ -114,15 +112,6 @@ void st_insert( char * name, ExpType type, int lineno, TreeNode * t/*, int loc *
 /* Function st_lookup returns the memory 
  * location of a variable or -1 if not found
  */
-/*int st_lookup ( char * name )
-{ int h = hash(name);
-  BucketList l =  hashTable[h];
-  while ((l != NULL) && (strcmp(name,l->name) != 0))
-    l = l->next;
-  if (l == NULL) return -1;
-  else return l->memloc;
-}*/
-
 BucketList st_lookup(ScopeList scope, char * name)
 { int h = hash(name);
   BucketList l;

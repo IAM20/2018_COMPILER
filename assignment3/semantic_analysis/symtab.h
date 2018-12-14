@@ -40,7 +40,6 @@ typedef struct BucketListRec
     TreeNode * node;
     int memloc; /*memory location for variable*/
     struct BucketListRec * next;
-    //ParamKind param;
   } * BucketList;
 
 typedef struct ScopeListRec
@@ -58,7 +57,6 @@ int scopeSize; // scope #
 ScopeList newScope(char*);
 void pushScope(ScopeList);
 void popScope();
-
 
 BucketList st_lookup ( ScopeList, char * );
 BucketList st_lookup_noparent ( ScopeList, char * );
